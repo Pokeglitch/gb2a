@@ -26,7 +26,6 @@ If this happens, delete the new address (created by this disassembler) from the 
 
 # Inputs
 
----
 **- rom** | String, _required_
 
 The path to the rom file
@@ -110,6 +109,7 @@ Default is `false`
 ---
 
 **- minDataPtr** | Number
+
 **- maxDataPtr** | Number
 
 This is another way to tell the disaseembler when to treat an uncertain value as a number or an address.

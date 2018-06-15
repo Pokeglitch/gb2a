@@ -359,7 +359,7 @@ let OpCodes = [
 	db(0xDD),
 	single('sbc _'),		// 0xDE
 	empty('rst $18'),		// 0xDF
-	ff('ld [_], a'),		// 0xE0
+	ff('ldh [_], a'),		// 0xE0
 	empty('pop hl'),		// 0xE1
 	empty('ld [$ff00+c], a'),		// 0xE2
 	db(0xE3),
@@ -375,7 +375,7 @@ let OpCodes = [
 	db(0xED),
 	single('xor _'),		// 0xEE
 	empty('rst $28'),		// 0xEF
-	ff('ld a, [_]'),		// 0xF0
+	ff('ldh a, [_]'),		// 0xF0
 	empty('pop af'),		// 0xF1
 	db(0xF2),
 	empty('di'),		// 0xF3

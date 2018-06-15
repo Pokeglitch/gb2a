@@ -6,10 +6,11 @@ let fs = require('fs'),
 	Parser = require('./Parser'),
 	Ref = require('./Ref'),
 	Address = require('./Address'),
-	Warning = require('./Warning');
+	Warning = require('./Warning'),
+	StringParser = require('./StringParser');
 
 class Disassembler {
-	constructor({ rom, loc, dir, sym, shim, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
+	constructor({ rom, loc, dir, sym, shim, charmap, eos, str, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
 		
 		// List of all references/address in RAM
 		this.RAMRefs = new Ref.Map();
@@ -17,11 +18,9 @@ class Disassembler {
 		// List of all references/address in ROM
 		this.ROMRefs = new Ref.Map();
 		
-		// List of all routines which have been parsed
+		// List of all routines/strings which have been parsed
 		this.ParsedRoutines = new OrderedList( rt => rt.addr );
-		
-		// List of all routines which still need to be parsed
-		this.RoutinesToParse = new Set();
+		this.ParsedStrings = new OrderedList( rt => rt.addr );
 		
 		// List of all names which are in the shim, but the address appears in the sym with a different name
 		this.ShimOnlyROMNames = new Map();
@@ -45,6 +44,25 @@ class Disassembler {
 			return;
 		}
 		
+		this.ByteToChar = new Map;
+		this.CharToByte = new Map;
+		
+		if( typeof charmap === 'string' ){
+			this.importCharMap( charmap );
+		}
+		
+		// End of string
+		this.EOS = new Set;
+		
+		[].concat(eos).forEach( val => {
+			if( typeof val === 'string' && this.CharToByte.has(val) ){
+				this.EOS.add( this.CharToByte.get(val) );
+			}
+			else if( typeof val === 'number' && this.ByteToChar.has(val) ){
+				this.EOS.add(val);
+			}
+		});
+		
 		// Test shim first, since any value in shim will also appear in sym
 		if( typeof shim === 'string' ){
 			this.importSym( shim, Ref.DATA );
@@ -61,8 +79,11 @@ class Disassembler {
 				1 :
 				0;
 		
-		// Import the locations to parse
-		this.importLocations(loc);
+		// List of all routines which still need to be parsed
+		this.RoutinesToParse = this.importLocations(loc);
+		
+		// List of all strings which still need to be parsed
+		this.StringsToParse = this.importLocations(str);
 		
 		this.assumePtr = assumePtr === true;
 		
@@ -75,8 +96,11 @@ class Disassembler {
 		this.next_gen_start_index = this.RoutinesToParse.size;
 		this.current_parse_index = 0;
 		
-		// Disassembe
+		// Disassemble
 		this.disassemble();
+		
+		// Strings
+		this.parseStrings();
 		
 		// Compile
 		this.compile( dir );
@@ -99,28 +123,66 @@ class Disassembler {
 		return false;
 	}
 	
+	// To import the char map
+	importCharMap( path ){
+		try{
+			var data = fs.readFileSync( path, 'utf8' );
+		}
+		catch(e){
+			Warning("Unable to load charmap from '" + path + "'");
+			return;
+		}
+		
+		let lines = data.split(/[\r\n]+/);
+		
+		for(let i = 0; i < lines.length; i ++ ){
+			let match = lines[i].split(';')[0].match(/^\s*charmap\s*"([^"]*)"\s*,\s*([^\s]+)\s*$/i);
+			
+			// If there was no match
+			if( !match ){
+				continue;
+			}
+			
+			let str = match[1],
+				value = match[2].charAt(0) === '$' ?
+					parseInt( match[2].slice(1), 16 ) :
+					parseInt( match[2] );
+					
+			if( this.ByteToChar.has(value) ){
+				Warning("Chars " + this.ByteToChar.get(value) + " and " + str + " both share byte " + match[2]);
+			}
+			else{
+				this.ByteToChar.set( value, str );
+				this.CharToByte.set( str, value );
+			}
+		}
+	}
+	
 	// To validate the starting locations
 	importLocations( loc ){
-		let input = [].concat( loc );
+		let input = [].concat( loc ),
+			output = new Set;
 		
 		// See if the input was a single address/bank
 		if( this.isValidAddress(input) ){
-			this.RoutinesToParse.add( Address.toGlobal(...input) );
+			output.add( Address.toGlobal(...input) );
 		}
 		else{
 			// Otherwise, validate each element
 			input.forEach( val => {
 				if( typeof val === 'number' && val % 1 === 0 && 0 <= val && val < this.ROM.length ){
-					this.RoutinesToParse.add( val );
+					output.add( val );
 				}
 				else if( typeof val === 'string' && this.ROMRefs.NameToIndex.has(val) ){
-					this.RoutinesToParse.add( this.ROMRefs.NameToIndex.get(val) )
+					output.add( this.ROMRefs.NameToIndex.get(val) )
 				}
 				else if( val instanceof Array && this.isValidAddress(val) ){
-					this.RoutinesToParse.add( Address.toGlobal(...val) );
+					output.add( Address.toGlobal(...val) );
 				}
 			})
 		}
+		
+		return output;
 	}
 	
 	// To import a sym file
@@ -371,6 +433,13 @@ class Disassembler {
 		}
 	}
 	
+	parseStrings(){
+		for( let addr of this.StringsToParse ){
+			this.ROMRefs.set( addr, Ref.DATA );
+			this.ParsedStrings.add( new StringParser( this, addr ) );
+		}
+	}
+	
 	// Returns true if the given address should be treated as a number
 	isMaybeANumber( addr ){
 		return !this.assumePtr || addr < this.minDataPtr || addr > this.maxDataPointer;
@@ -431,6 +500,47 @@ class Disassembler {
 			
 			// Compile the routine
 			rt.compile( this, asm );
+			
+			// Add a line break
+			asm.write( '\n' );
+		}
+		
+		asm.end();
+	
+		try{
+			var asm = fs.createWriteStream( outDir + '/strings.asm' );
+		}
+		catch(e){
+			Warning("Error creating output file: '" + outDir + "'/strings.asm'");
+			return;
+		}
+		
+		// Traverse the parsed strings
+		prev_after_addr = null;
+	
+		for( let str of this.ParsedStrings ){
+		
+			// Section Header of the previous routine's "after address" doesn't match this routines start address:
+			if( str.addr !== prev_after_addr ){
+				let [bank, addr] = Address.toBankString( str.addr, 'rom' ).split(':')
+				
+				asm.write( 'SECTION "' + this.getName( str.addr, 'rom' ) + '", ' );
+				
+				if( bank === '00' ){
+					asm.write( 'ROM0[$' + addr + ']' );
+				}
+				else{
+					asm.write('ROMX[$' + addr + '], BANK[$' + bank + ']');
+				}
+				
+				asm.write('\n\n');
+			}
+		
+			// Update the "previous after address"
+			prev_after_addr = str.after_addr;
+			
+			// Compile the string
+			str.compile( this, asm );
 			
 			// Add a line break
 			asm.write( '\n' );
