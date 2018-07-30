@@ -1,4 +1,4 @@
-let Dis = require('./Disassembler'),
+let Dis = require('./src/Disassembler'),
 	inputs = {
 		rom : '',
 		loc : [],
