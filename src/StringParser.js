@@ -38,7 +38,7 @@ class StringParser {
 			asm.write( label + '\n' );
 		})
 		
-		asm.write( '\t"' + this.String + '"\n' );
+		asm.write( '\tdb "' + this.String + '"\n' );
 	}
 }
 

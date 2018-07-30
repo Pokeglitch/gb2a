@@ -368,7 +368,7 @@ let OpCodes = [
 	single('and _'),		// 0xE6
 	empty('rst $20'),		// 0xE7
 	single('add sp, _'),		// 0xE8
-	empty('jp [hl]'),		// 0xE9
+	empty('jp hl'),		// 0xE9
 	ref('ld [_], a', Ref.DATA),		// 0xEA
 	db(0xEB),
 	db(0xEC),
