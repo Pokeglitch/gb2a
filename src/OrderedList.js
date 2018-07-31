@@ -5,6 +5,29 @@ class OrderedList{
 		this.size = 0;
 	}
 	
+	// To see if this list has a node as the provided index
+	has( index ){
+		let node = this;
+		
+		while( (node = node.next) && index <= node.data.addr ){
+			if( node.data.addr === index ){
+				return node.data;
+			}
+		}
+		return null;
+	}
+	
+	// To see if this list and it scontents contain the provided index
+	contains( index ){
+		let node = this;
+		while( (node = node.next) && index <= node.data.getTail().after_addr ){
+			if( index >= node.data.addr && index < node.data.getTail().after_addr ){
+				return node.data;
+			}
+		}
+		return null;
+	}
+	
 	add( data ){
 		let node = this.size ?
 			this.next.insert( data ) : 

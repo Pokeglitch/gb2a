@@ -27,7 +27,6 @@ class Disassembler {
 		this.ShimOnlyRAMNames = new Map();
 		
 		// Input arguments:
-		
 		try{
 			this.ROM = fs.readFileSync( rom );
 		}
@@ -71,7 +70,7 @@ class Disassembler {
 			this.importSym( sym, Ref.MAIN );
 		}
 		
-		// The bank to use for non-home back pointers found in the home bank
+		// The bank to use for non-home bank pointers found in the home bank
 		this.homeRefBank = (typeof homeRefBank === 'number' && 0 <= homeRefBank && homeRefBank < this.num_banks ) ?
 			homeRefBank :
 			// If there is only 1 non-home bank, then set that as the reference bank
@@ -136,7 +135,7 @@ class Disassembler {
 		let lines = data.split(/[\r\n]+/);
 		
 		for(let i = 0; i < lines.length; i ++ ){
-			let match = lines[i].split(';')[0].match(/^\s*charmap\s*"([^"]*)"\s*,\s*([^\s]+)\s*$/i);
+			let match = lines[i].split(';')[0].match(/^\s*charmap\s*"((?:[^"\\]|\\.)*)"\s*,\s*([^\s]+)\s*$/i);
 			
 			// If there was no match
 			if( !match ){
@@ -161,23 +160,27 @@ class Disassembler {
 	// To validate the starting locations
 	importLocations( loc ){
 		let input = [].concat( loc ),
-			output = new Set;
+			output = new Set,
+			add = x => {
+				output.add(x);
+				this.ROMRefs.set(x, Ref.DATA);
+			};
 		
 		// See if the input was a single address/bank
 		if( this.isValidAddress(input) ){
-			output.add( Address.toGlobal(...input) );
+			add( Address.toGlobal(...input) );
 		}
 		else{
 			// Otherwise, validate each element
 			input.forEach( val => {
 				if( typeof val === 'number' && val % 1 === 0 && 0 <= val && val < this.ROM.length ){
-					output.add( val );
+					add( val );
 				}
 				else if( typeof val === 'string' && this.ROMRefs.NameToIndex.has(val) ){
-					output.add( this.ROMRefs.NameToIndex.get(val) )
+					add( this.ROMRefs.NameToIndex.get(val) )
 				}
 				else if( val instanceof Array && this.isValidAddress(val) ){
-					output.add( Address.toGlobal(...val) );
+					add( Address.toGlobal(...val) );
 				}
 			})
 		}
@@ -366,7 +369,7 @@ class Disassembler {
 					case Ref.EXEC:
 					case Ref.MAIN:
 					case Ref.FAULTY_EXEC:
-						name = 'Function_' + Address.format( addr, 4 );
+						name = 'Function' + Address.format( addr, 4 );
 						break;
 				}
 				
@@ -435,8 +438,21 @@ class Disassembler {
 	
 	parseStrings(){
 		for( let addr of this.StringsToParse ){
-			this.ROMRefs.set( addr, Ref.DATA );
-			this.ParsedStrings.add( new StringParser( this, addr ) );
+			// if start/middle of routine, dont parse
+			if( this.ParsedRoutines.contains(addr) ){
+				Warning(`Cannot parse string at ${ Address.toBankString(addr, 'rom') } because it collides with routine`);
+			}
+			// If in the middle of a string, split it
+			else{
+				let node = this.ParsedStrings.contains(addr);
+				
+				if( node ){
+					this.ParsedStrings.add( node.split(addr) );
+				}
+				else{
+					this.ParsedStrings.add( new StringParser( this, addr ) );
+				}
+			}
 		}
 	}
 	
