@@ -7,10 +7,11 @@ let fs = require('fs'),
 	Ref = require('./Ref'),
 	Address = require('./Address'),
 	Warning = require('./Warning'),
-	StringParser = require('./StringParser');
+	StringParser = require('./StringParser'),
+	TableParser = require('./TableParser');
 
 class Disassembler {
-	constructor({ rom, loc, dir, sym, shim, charmap, eos, str, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
+	constructor({ rom, loc, dir, sym, shim, charmap, eos, str, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
 		
 		// List of all references/address in RAM
 		this.RAMRefs = new Ref.Map();
@@ -19,8 +20,9 @@ class Disassembler {
 		this.ROMRefs = new Ref.Map();
 		
 		// List of all routines/strings which have been parsed
-		this.ParsedRoutines = new OrderedList( rt => rt.addr );
-		this.ParsedStrings = new OrderedList( rt => rt.addr );
+		this.ParsedRoutines = new OrderedList( rtn => rtn.addr );
+		this.ParsedStrings = new OrderedList( str => str.addr );
+		this.ParsedTables = new OrderedList( tbl => tbl.addr );
 		
 		// List of all names which are in the shim, but the address appears in the sym with a different name
 		this.ShimOnlyROMNames = new Map();
@@ -84,6 +86,9 @@ class Disassembler {
 		// List of all strings which still need to be parsed
 		this.StringsToParse = this.importLocations(str);
 		
+		// List of all tables which still need to be parsed
+		this.TablesToParse = this.importLocations(table);
+		
 		this.assumePtr = assumePtr === true;
 		
 		this.minDataPtr = (typeof minDataPtr === 'number' && 0 <= minDataPtr <= this.ROM.length) ? minDataPtr : 0;
@@ -94,6 +99,9 @@ class Disassembler {
 		this.max_gen = typeof gen === 'number' && 0 <= gen ? gen : 0;
 		this.next_gen_start_index = this.RoutinesToParse.size;
 		this.current_parse_index = 0;
+		
+		// Parse the tables (to extract pointers
+		this.parseTables();
 		
 		// Disassemble
 		this.disassemble();
@@ -361,7 +369,7 @@ class Disassembler {
 						}
 					case Ref.DATA:
 					case Ref.FAULTY_DATA:
-						name = 'Unknown_' + Address.format( addr, 4 );
+						name = 'Unknown' + Address.format( addr, 4 );
 						break;
 					case Ref.SUB:
 						name = '.sub_' + Address.format( addr, 4 );
@@ -433,6 +441,12 @@ class Disassembler {
 				// Execute the Parser
 				new Parser( this, addr );
 			}
+		}
+	}
+	
+	parseTables(){
+		for(let addr of this.TablesToParse){
+			this.ParsedTables.add( new TableParser( this, addr ) );
 		}
 	}
 	
@@ -557,6 +571,47 @@ class Disassembler {
 			
 			// Compile the string
 			str.compile( this, asm );
+			
+			// Add a line break
+			asm.write( '\n' );
+		}
+		
+		asm.end();
+	
+		try{
+			var asm = fs.createWriteStream( outDir + '/tables.asm' );
+		}
+		catch(e){
+			Warning("Error creating output file: '" + outDir + "'/tables.asm'");
+			return;
+		}
+		
+		// Traverse the parsed tables
+		prev_after_addr = null;
+	
+		for( let tbl of this.ParsedTables ){
+		
+			// Section Header of the previous routine's "after address" doesn't match this routines start address:
+			if( tbl.addr !== prev_after_addr ){
+				let [bank, addr] = Address.toBankString( tbl.addr, 'rom' ).split(':')
+				
+				asm.write( 'SECTION "' + this.getName( tbl.addr, 'rom' ) + '", ' );
+				
+				if( bank === '00' ){
+					asm.write( 'ROM0[$' + addr + ']' );
+				}
+				else{
+					asm.write('ROMX[$' + addr + '], BANK[$' + bank + ']');
+				}
+				
+				asm.write('\n\n');
+			}
+		
+			// Update the "previous after address"
+			prev_after_addr = tbl.after_addr;
+			
+			// Compile the table
+			tbl.compile( this, asm );
 			
 			// Add a line break
 			asm.write( '\n' );
