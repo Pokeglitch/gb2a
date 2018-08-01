@@ -6,6 +6,8 @@ class RefMap {
 		this.data = new Map();
 		this.NameToIndex = new Map();
 		this.IndexToName = new Map();
+		this.doTrack = false;
+		this.trackedAddresses = new Set();
 	}
 	// To link the name to index and vice versa
 	// A single address can have multiple names, so store as a list
@@ -31,6 +33,12 @@ class RefMap {
 			return list;
 		}
 	}
+	beginTracking(){
+		this.doTrack = true;
+	}
+	isNew( addr ){
+		return this.trackedAddresses.has(addr);
+	}
 	// Set the type as Faulty (can never be downgraded to a non-faulty
 	setFaulty( addr, type ){
 		this.set( addr, type + types.length );
@@ -39,6 +47,11 @@ class RefMap {
 	set( addr, type ){
 		let prev_type = this.get(addr),
 			new_type = Math.max( prev_type, type );
+		
+		// If tracking, and this data has not already been added, then track
+		if( this.doTrack && !this.data.has(addr) ){
+			this.trackedAddresses.add(addr);
+		}
 		
 		return this.data.set( addr, new_type );
 	}

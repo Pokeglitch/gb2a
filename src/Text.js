@@ -20,7 +20,6 @@ class Text {
 	}
 	
 	split( addr ){
-		console.log(addr)
 		let node = new Text( this.parser, addr );
 		
 		node.content = this.content.splice( addr - this.addr );

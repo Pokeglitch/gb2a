@@ -16,7 +16,6 @@ class OrderedList{
 			}
 			
 			if( node.data.addr === addr ){
-				console.log(addr)
 				return node.data;
 			}
 		}

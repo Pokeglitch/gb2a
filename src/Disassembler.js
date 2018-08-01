@@ -2,11 +2,11 @@
 IF SYM FILE HAS VALUE< DONT UPGRADE IF ITS ALSO IN THE SHIM FILE...
 */
 let fs = require('fs'),
-	OrderedList = require('./OrderedList'),
-	RoutineParser = require('./RoutineParser'),
 	Ref = require('./Ref'),
 	Address = require('./Address'),
 	Warning = require('./Warning'),
+	OrderedList = require('./OrderedList'),
+	RoutineParser = require('./RoutineParser'),
 	TextParser = require('./TextParser'),
 	TableParser = require('./TableParser');
 
@@ -73,6 +73,10 @@ class Disassembler {
 			this.importSym( sym, Ref.MAIN );
 		}
 		
+		// Begin tracking which refs were discovered during disassembly
+		this.ROMRefs.beginTracking();
+		this.RAMRefs.beginTracking();
+		
 		// The bank to use for non-home bank pointers found in the home bank
 		this.homeRefBank = (typeof homeRefBank === 'number' && 0 <= homeRefBank && homeRefBank < this.num_banks ) ?
 			homeRefBank :
@@ -81,13 +85,9 @@ class Disassembler {
 				1 :
 				0;
 		
-		// List of all routines which still need to be parsed
+		// List of all content which still need to be parsed
 		this.RoutinesToParse = this.importLocations(loc);
-		
-		// List of all strings which still need to be parsed
 		this.StringsToParse = this.importLocations(str);
-		
-		// List of all tables which still need to be parsed
 		this.TablesToParse = this.importLocations(table);
 		
 		this.assumePtr = assumePtr === true;
@@ -519,6 +519,10 @@ class Disassembler {
 		
 			// Section Header of the previous content's "after address" doesn't match this routines start address:
 			if( content.addr !== prev_after_addr ){
+				if( prev_after_addr ){
+					asm.write(`; ${ Address.toBankString( prev_after_addr, 'rom' ) }\n\n`);
+				}
+			
 				let [bank, addr] = Address.toBankString( content.addr, 'rom' ).split(':')
 				
 				asm.write( 'SECTION "' + this.getName( content.addr, 'rom' ) + '", ' );
@@ -547,10 +551,15 @@ class Disassembler {
 		
 		// Create the shim file
 		let rom_shim = new OrderedList( x => x.addr ),
-			ram_shim = new OrderedList( x => x.addr );
+			ram_shim = new OrderedList( x => x.addr ),
+			new_rom_shim = new OrderedList( x => x.addr ),
+			new_ram_shim = new OrderedList( x => x.addr );
 		
 		// Capture the necessary ROM addresses
 		for(let [addr,type] of this.ROMRefs){
+			if( this.ParsedContent.has(addr) ){
+				continue;
+			}
 			switch( type ){
 				case Ref.MAYBE:
 					if( this.isMaybeANumber(addr) ){
@@ -560,11 +569,16 @@ class Disassembler {
 				case Ref.EXEC:
 				case Ref.FAULTY_DATA:
 				case Ref.FAULTY_EXEC:
-					var name = this.getName( addr, 'rom', true );
+					var name = this.getName( addr, 'rom', true ),
+						isNew = this.ROMRefs.isNew(addr);
 					
 					name.forEach( x => {
 						let str = Address.toBankString( addr, 'rom' ) + ' ' + x;
 						rom_shim.add({ addr, str });
+						
+						if(isNew){
+							new_rom_shim.add({ addr, str });
+						}
 					});
 			}
 		}
@@ -585,11 +599,16 @@ class Disassembler {
 					}
 				case Ref.DATA:
 				case Ref.EXEC:
-					let name = this.getName( addr, 'ram', true );
+					let name = this.getName( addr, 'ram', true ),
+						isNew = this.RAMRefs.isNew(addr);
 					
 					name.forEach( x => {
 						let str = Address.toBankString( addr, 'ram' ) + ' ' + x;
 						ram_shim.add({ addr, str });
+						
+						if(isNew){
+							new_ram_shim.add({ addr, str });
+						}
 					});
 			}
 		}
@@ -620,6 +639,25 @@ class Disassembler {
 		}
 		
 		out_shim.end();
+		
+		// Write the new_shim_only file
+		try{
+			var out_new_shim = fs.createWriteStream( outDir + '/new_shim_only.sym' );
+		}
+		catch(e){
+			Warning("Error creating output file: '" + outDir + "'/new_shim_only.sym'");
+			return;
+		}
+		
+		for( let { str } of new_rom_shim ){
+			out_new_shim.write( str + '\n' );
+		}
+		
+		for( let { str } of new_ram_shim ){
+			out_new_shim.write( str + '\n' );
+		}
+		
+		out_new_shim.end();
 		
 		console.log("Successfully wrote files to '" + outDir + "' directory");
 	}
