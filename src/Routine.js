@@ -40,6 +40,10 @@ class Routine {
 		return !this.next;
 	}
 	
+	getHead(){
+		return this.isHead() ? this : this.prev.getHead();
+	}
+	
 	getTail(){
 		return this.isTail() ? this : this.next.getTail();
 	}
@@ -61,7 +65,7 @@ class Routine {
 	
 		// Add it to the ParsedRoutines
 		this.parser.ParsedRoutines.add( this );
-		this.parser.disassembly.ShimOnlyROMNames.delete( this.Head.addr );
+		this.parser.disassembly.ShimOnlyROMNames.delete( this.getHead().addr );
 		
 		// Set the new type
 		this.parser.ROMRefs.set( this.addr, Ref.MAIN );
