@@ -5,26 +5,41 @@ class OrderedList{
 		this.size = 0;
 	}
 	
-	// To see if this list has a node as the provided index
-	has( index ){
+	// To see if this list has a node as the provided addr
+	has( addr ){
 		let node = this;
 		
-		while( (node = node.next) && index <= node.data.addr ){
-			if( node.data.addr === index ){
+		while( node = node.next ){
+			// Since it's ordered, stop when the node addr is later than the addr
+			if( addr < node.data.addr ){
+				break;
+			}
+			
+			if( node.data.addr === addr ){
+				console.log(addr)
 				return node.data;
 			}
 		}
+		
 		return null;
 	}
 	
-	// To see if this list and it scontents contain the provided index
-	contains( index ){
+	// To see if this list and it scontents contain the provided addr
+	contains( addr ){
 		let node = this;
-		while( (node = node.next) && index <= node.data.getTail().after_addr ){
-			if( index >= node.data.addr && index < node.data.getTail().after_addr ){
+		
+		while( node = node.next ){
+			
+			// Since it's ordered, stop when the node addr is later than the addr
+			if( addr < node.data.addr ){
+				break;
+			}
+			
+			if( addr >= node.data.addr && addr < node.data.getNextAddr() ){
 				return node.data;
 			}
 		}
+		
 		return null;
 	}
 	

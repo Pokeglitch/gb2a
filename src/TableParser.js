@@ -1,4 +1,5 @@
-let Address = require('./Address'),
+let Table = require('./Table'),
+	Address = require('./Address'),
 	Ref = require('./Ref'),
 	Warning = require('./Warning');
 
@@ -9,17 +10,16 @@ class TableParser {
 		
 		// Pull some data from the disassembly
 		this.ROM = disassembly.ROM;
-		this.index = addr;
-		this.data = [];
 		
+		// Initialize the parser data
+		this.index = addr;
+		
+		this.Head = this.Table = new Table(this, addr);
+		
+		// Begin parsing
 		this.parse();
 		
-		this.after_addr = this.index;
-	}
-	
-	// To have the same interface as Routine
-	getTail(){
-		return this;
+		this.finalize();
 	}
 	
 	parse(){
@@ -32,8 +32,8 @@ class TableParser {
 		let addr = this.ROM[this.index++];
 		addr += 0x100 * this.ROM[this.index++];
 		
+		this.Table.addContent(addr);
 		this.disassembly.ROMRefs.set( addr, Ref.EXEC );
-		this.data.push(addr);
 		this.disassembly.RoutinesToParse.add(addr);
 	}
 	
@@ -51,18 +51,9 @@ class TableParser {
 		return true;
 	}
 	
-	compile( dis, asm ){
-		let labels = dis.getName( this.addr, 'rom', true );
-		
-		labels.forEach( (x,i) => {
-			let label = x + ':';
-			if( i === 0 ){
-				label += ' ; ' + Address.toBankString( this.addr, 'rom' );
-			}
-			asm.write( label + '\n' );
-		})
-		
-		this.data.forEach( addr => asm.write( '\tdw ' + dis.getName(addr, 'rom') + '\n' ) );
+	finalize(){
+		this.Table.close( this.index );
+		this.Head.store();
 	}
 }
 

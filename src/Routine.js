@@ -48,6 +48,10 @@ class Routine {
 		return this.isTail() ? this : this.next.getTail();
 	}
 	
+	getNextAddr(){
+		return this.getTail().after_addr;
+	}
+	
 	addOutput( fn, index ){
 		this.outputs.push( fn );
 		this.indices.push( index );

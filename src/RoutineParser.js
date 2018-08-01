@@ -5,7 +5,7 @@ let Routine = require('./Routine'),
 	Warning = require('./Warning');
 
 // To parse for a specific routine chain
-class Parser {
+class RoutineParser {
 	constructor( disassembly, addr ){
 		this.disassembly = disassembly;
 		
@@ -45,7 +45,7 @@ class Parser {
 
 		// If this is a Main Fork, then create a new parser
 		if( this.doForkExternal ){
-			new Parser( this.disassembly, this.index );
+			new RoutineParser( this.disassembly, this.index );
 		}
 	}
 	
@@ -283,8 +283,9 @@ class Parser {
 		}
 		
 		this.ParsedRoutines.add( this.Head );
+		this.disassembly.ParsedContent.add( this.Head );
 		this.disassembly.ShimOnlyROMNames.delete( this.Head.addr );
 	}
 }
 
-module.exports = Parser;
+module.exports = RoutineParser;
