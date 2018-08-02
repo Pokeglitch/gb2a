@@ -40,8 +40,8 @@ The directory to place the output files.
 
 The disassembler will create 3 files:
   * One 'asm' file containing the disassembled routine
-  * One 'sym' file containing the non-parsed addresses encountered during the disassembling along with the addresses in the input shim file
-  * One 'sym' file for reference, containing the non-parsed addresses encountered during the disassembling
+  * One 'sym' file containing the all non-parsed addresses (both old and new)
+  * One 'sym' file for reference, containing only the newly encountered non-parsed addresses
 
 ---
 
@@ -49,7 +49,7 @@ The disassembler will create 3 files:
 
 The path to the SymFile.
 
-The disassembler will assume all pointers in the SymFile have already been parsed.
+The disassembler will assume all pointers in the SymFile have already been parsed (unless they are also in the ShimFile)
 
 Therefor, it will not parse any data at those locations, unless explicity told to by the input locations
 
@@ -79,7 +79,7 @@ The path to the CharMap file.  Uses the same format as rgbds.
 
 The disassembler will use this when parsing Text to convert the byte values into characters.
 
-The output character have be of any length, but the input value must be a single byte.
+The output chars can be of any length, but the input value must be a single byte.
 
 It will stop parsing strings when it encounters a byte value that is not in this map
 
@@ -156,7 +156,7 @@ The location(s) in the ROM to parse for raw data
 
 It will continue parsing until it reaches a known address
 
-Data is written to the output.asm file as individual hex values
+Data is written to the output.asm file as 8-bit hex values
 
 Values can be (alone or in an array):
   * Number
@@ -220,7 +220,7 @@ Any values outside will be treated as numbers.
 
 **- homeRefBank** | Number
 
-Bank switching is not considered during the disassembly process.
+Bank switching is not detected during the disassembly process.
 
 When a non-home address is referenced from the home bank, it will simply write the address as a number to the output file. (Unless the ROM itself only has 1 bank)
 
