@@ -6,7 +6,7 @@ Not a command line module right now.
 
 Modify the options in index.js as needed.
 
-The input shim/sym/charmap/rom come directly from the disassembly directory.
+The input shim/sym/charmap/rom can be copied from the disaseembly directory, or directly refer to those files
 
 Then open the command line the directory, and simply execute:
 
@@ -14,7 +14,7 @@ Then open the command line the directory, and simply execute:
 node index
 ```
 
-This will create an output.asm file containing the parsed routines, which is formatted to work immediately with RGBDS.
+This will create an output.asm file containing all of the extracted content, which is formatted to work immediately with RGBDS.
 
 It will also create a shim.sym file, which is a duplicate of the input shim.sym file, but will also include any additional pointers encountered during the disassembly process.
 
@@ -38,9 +38,10 @@ The path to the rom file
 
 The directory to place the output files.
 
-The disassembler will create 2 files:
+The disassembler will create 3 files:
   * One 'asm' file containing the disassembled routine
-  * One 'sym' file containing the non-parsed addresses encountered during the disassembling
+  * One 'sym' file containing the non-parsed addresses encountered during the disassembling along with the addresses in the input shim file
+  * One 'sym' file for reference, containing the non-parsed addresses encountered during the disassembling
 
 ---
 
@@ -56,7 +57,7 @@ The output file will use these as the pointer names
 
 _NOTE:_ Even if a routine is the SymFile, the disassembler might parse a portion of it if a to-parse location falls within the routine.
 
-The disassembly has now way of knowing that it belongs to the routine in the SymFile, since the SymFile only lists the start address.
+The disassembly has no way of knowing that it belongs to the routine in the SymFile, since the SymFile only lists the start address.
 
 ---
 
@@ -74,7 +75,7 @@ The output file will use these as the pointer names
 
 **- charmap** | String
 
-The path to the Charmap file.  Uses the same format as rgbds.
+The path to the CharMap file.  Uses the same format as rgbds.
 
 The disassembler will use this when parsing Text to convert the byte values into characters.
 
@@ -108,7 +109,7 @@ The location(s) in the ROM to parse for Text
 
 It will continue parsing until it reaches a known address, an `eos` symbol, or a value not in the charmap
 
-Text is written to the output file as a string, a concatenation of all chars after converting from the byte value using the `charmap`
+Text is written to the output file as a string (a concatenation of all chars after converting from the byte value using the CharMap)
 
 Values can be (alone or in an array):
   * Number
