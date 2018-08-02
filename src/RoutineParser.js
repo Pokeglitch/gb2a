@@ -17,6 +17,7 @@ class RoutineParser {
 		
 		this.ParsedRoutines = disassembly.ParsedRoutines;
 		this.RoutinesToParse = disassembly.RoutinesToParse;
+		this.ContentToParse = disassembly.ContentToParse;
 		
 		// Initialize routine specific data
 		this.InternalRefs = new Ref.Map();
@@ -186,6 +187,7 @@ class RoutineParser {
 				// Add to routines to parse if it's referenced as an EXEC
 				if( type === Ref.EXEC ){
 					this.RoutinesToParse.add(addr);
+					this.ContentToParse.add(addr);
 				}
 			}
 			return;
@@ -204,6 +206,18 @@ class RoutineParser {
 		}
 		// Otherwise, add/upgrade the internal list
 		else{
+			//NOTE - Routines are already considered
+			let node = this.disassembly.ParsedContent.contains(addr);
+			if( node ){
+				if( type !== Ref.MAYBE ){
+					Warning(`Attempting to execute a ${ node.type } at ${ Address.toBankString(addr,'rom') } from ${ this.disassembly.getName(this.Head.addr) }`)
+					this.ROMRefs.setFaulty(addr,type);
+				}
+				else if( node.addr !== addr ){
+					node.split(addr);
+					type = Ref.DATA;
+				}
+			}
 			this.InternalRefs.set( addr, type );
 		}
 	}
@@ -261,8 +275,14 @@ class RoutineParser {
 		
 		// If it was referenced externally by any means, then fork as a main routine
 		else if( external_ref ){
+			let node = this.disassembly.ParsedContent.has(this.index);
 			// Only fork if it has not already been parsed
-			if( external_ref !== Ref.MAIN ){
+			if( node ){
+				if( node.type !== 'Routine' ){
+					Warning(`Routine falls through into a ${ node.type } at ${ Address.toBankString(this.index,'rom') }`)
+				}
+			}
+			else if( external_ref !== Ref.MAIN ){
 				this.doForkExternal = true;
 			}
 			return false;
@@ -279,6 +299,7 @@ class RoutineParser {
 		
 			if( type === Ref.EXEC ){
 				this.RoutinesToParse.add(addr);
+				this.ContentToParse.add(addr);
 			}
 		}
 		

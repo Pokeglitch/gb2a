@@ -1,6 +1,3 @@
-/*
-IF SYM FILE HAS VALUE< DONT UPGRADE IF ITS ALSO IN THE SHIM FILE...
-*/
 let fs = require('fs'),
 	Ref = require('./Ref'),
 	Address = require('./Address'),
@@ -8,10 +5,11 @@ let fs = require('fs'),
 	OrderedList = require('./OrderedList'),
 	RoutineParser = require('./RoutineParser'),
 	TextParser = require('./TextParser'),
+	DataParser = require('./DataParser'),
 	TableParser = require('./TableParser');
 
 class Disassembler {
-	constructor({ rom, loc, dir, sym, shim, charmap, eos, str, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
+	constructor({ rom, asm, data, dir, sym, shim, charmap, eos, text, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
 		
 		// List of all references/address in RAM
 		this.RAMRefs = new Ref.Map();
@@ -20,9 +18,10 @@ class Disassembler {
 		this.ROMRefs = new Ref.Map();
 		
 		// List of all routines/strings which have been parsed
-		this.ParsedRoutines = new OrderedList( rtn => rtn.addr );
-		this.ParsedTexts = new OrderedList( str => str.addr );
-		this.ParsedTables = new OrderedList( tbl => tbl.addr );
+		this.ParsedRoutines = new OrderedList( asm => asm.addr );
+		this.ParsedTexts = new OrderedList( text => text.addr );
+		this.ParsedTables = new OrderedList( table => table.addr );
+		this.ParsedData = new OrderedList( data => data.addr );
 		this.ParsedContent = new OrderedList( c => c.addr );
 		
 		// List of all names which are in the shim, but the address appears in the sym with a different name
@@ -86,8 +85,10 @@ class Disassembler {
 				0;
 		
 		// List of all content which still need to be parsed
-		this.RoutinesToParse = this.importLocations(loc);
-		this.StringsToParse = this.importLocations(str);
+		this.ContentToParse = new Set();
+		this.DataToParse = this.importLocations(data);
+		this.RoutinesToParse = this.importLocations(asm);
+		this.StringsToParse = this.importLocations(text);
 		this.TablesToParse = this.importLocations(table);
 		
 		this.assumePtr = assumePtr === true;
@@ -101,14 +102,10 @@ class Disassembler {
 		this.next_gen_start_index = this.RoutinesToParse.size;
 		this.current_parse_index = 0;
 		
-		// Parse the tables (to extract pointers
-		this.parseTables();
-		
-		// Disassemble
-		this.disassemble();
-		
-		// Strings
 		this.parseStrings();
+		this.parseTables();
+		this.parseData();
+		this.parseRoutines();
 		
 		// Compile
 		this.compile( dir );
@@ -173,6 +170,7 @@ class Disassembler {
 			add = x => {
 				output.add(x);
 				this.ROMRefs.set(x, Ref.DATA);
+				this.ContentToParse.add(x);
 			};
 		
 		// See if the input was a single address/bank
@@ -371,7 +369,7 @@ class Disassembler {
 					case Ref.DATA:
 						let content = this.ParsedContent.has(addr),
 							prefix = content ?
-								content.prefix :
+								content.type :
 								'Unknown';
 								
 						name = prefix + Address.format( addr, 4 );
@@ -396,7 +394,7 @@ class Disassembler {
 	}
 	
 	// To begin the disassembly process
-	disassemble(){
+	parseRoutines(){
 		// Go through each address in the RoutinesToParse set
 		// This set is updated after each routine is parsed
 		for( let addr of this.RoutinesToParse ){
@@ -421,7 +419,7 @@ class Disassembler {
 			// Don't parse if the address has already been parsed
 			if( external_type === Ref.MAIN ){
 				// Unless explicitly directed to from the inputs
-				if( this.current_gen === 0 ){
+				if( this.current_gen === 0 && !this.ParsedRoutines.has(addr) ){
 					// Execute the RoutineParser
 					new RoutineParser( this, addr );
 				}
@@ -444,36 +442,91 @@ class Disassembler {
 			else if( this.trySplitExternal( addr, Ref.EXEC, null ) ){
 				continue;
 			}
-			// Otherwise, parse
+			// Otherwise, see if it collides with anything already parsed
 			else{
-				// Execute the RoutineParser
-				new RoutineParser( this, addr );
+				// Note: Already handled parsed routine splitting/upgrades
+				let node = this.ParsedContent.contains(addr);
+				
+				if( node ){
+					Warning(`Cannot parse routine at ${ Address.toBankString(addr, 'rom') } because a ${ node.type } has already been parsed at that location`);
+					continue;
+				}
+				else{
+					// Execute the RoutineParser
+					new RoutineParser( this, addr );
+				}
 			}
 		}
 	}
 	
 	parseTables(){
 		for(let addr of this.TablesToParse){
-			new TableParser( this, addr );
+			let node = this.ParsedContent.contains(addr);
+			// If already parsed:
+			if( node ){
+				// If it's a table node
+				if( node.type === 'Table' ){
+					// Split if the node start address is not the same as this address
+					if( node.addr !== addr ){
+						node.split(addr);
+					}
+				}
+				// If not text, then warning
+				else{
+					Warning(`Cannot parse table at ${ Address.toBankString(addr, 'rom') } because a ${ node.type } has already been parsed at that location`);
+				}
+			}
+			// Otherwise, parse
+			else{
+				new TableParser( this, addr );
+			}
+		}
+	}
+	
+	parseData(){
+		for(let addr of this.DataToParse){
+			let node = this.ParsedContent.contains(addr);
+			// If already parsed:
+			if( node ){
+				// If it's a data node
+				if( node.type === 'Data' ){
+					// Split if the node start address is not the same as this address
+					if( node.addr !== addr ){
+						node.split(addr);
+					}
+				}
+				// If not text, then warning
+				else{
+					Warning(`Cannot parse data at ${ Address.toBankString(addr, 'rom') } because a ${ node.type } has already been parsed at that location`);
+				}
+			}
+			// Otherwise, parse
+			else{
+				new DataParser( this, addr );
+			}
 		}
 	}
 	
 	parseStrings(){
 		for( let addr of this.StringsToParse ){
-			// if start/middle of routine, dont parse
-			if( this.ParsedRoutines.contains(addr) ){
-				Warning(`Cannot parse string at ${ Address.toBankString(addr, 'rom') } because it collides with routine`);
-			}
-			// If in the middle of a string, split it
-			else{
-				let node = this.ParsedTexts.contains(addr);
-				
-				if( node ){
-					node.split(addr);
+			let node = this.ParsedContent.contains(addr);
+			// If already parsed:
+			if( node ){
+				// If it's a text node
+				if( node.type === 'Text' ){
+					// Split if the node start address is not the same as this address
+					if( node.addr !== addr ){
+						node.split(addr);
+					}
 				}
+				// If not text, then warning
 				else{
-					new TextParser( this, addr );
+					Warning(`Cannot parse text at ${ Address.toBankString(addr, 'rom') } because a ${ node.type } has already been parsed at that location`);
 				}
+			}
+			// Otherwise, parse
+			else{
+				new TextParser( this, addr );
 			}
 		}
 	}

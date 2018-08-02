@@ -16,14 +16,20 @@ class TextParser {
 		
 		// Initialize the parser data
 		this.index = addr;
+		this.doFork = false;
 		
 		// Create the head Text node
 		this.Head = this.Text = new Text( this, addr );
+		this.disassembly.ROMRefs.set(addr, Ref.DATA);
 		
 		// Begin parsing
 		this.parse();
 		
 		this.finalize();
+		
+		if( this.doFork ){
+			new TextParser( disassembly, this.index );
+		}
 	}
 	
 	parse(){
@@ -46,10 +52,12 @@ class TextParser {
 	/* Don't continue if:
 		- the value is an EOS symbol
 		- the bank has ended
-		- the address is a routine 
 		- the address is a string
+		- the address has already been parsed or is a 'main'
 	*/
 	doContinue(value){
+		let ref = this.disassembly.ROMRefs.get(this.index);
+		
 		if( this.EOS.has(value) ){
 			return false;
 		}
@@ -58,13 +66,24 @@ class TextParser {
 			return false;
 		}
 		
-		if( this.disassembly.ROMRefs.get(this.index) === Ref.MAIN ){
-			Warning(`Start of routine reached while parsing string at ${ Address.toBankString(this.addr, 'rom') }`);
+		if( ref === Ref.MAIN ){
+			Warning(`Sym address reached while parsing string at ${ Address.toBankString(this.addr, 'rom') }, so terminating`);
 			return false;
 		}
 		
-		if( this.disassembly.ParsedTexts.has(this.index) ){
-			Warning(`Start of another string reached while parsing string at ${ Address.toBankString(this.addr, 'rom') }`);
+		let node = this.disassembly.ParsedContent.has(this.index);
+		
+		if( node ){
+			if( node.type !== 'Text' ){
+				Warning(`Start of ${ node.type } encountered while parsing string at ${ Address.toBankString(this.addr, 'rom') }, so terminating`);
+			}
+			return false;
+		}
+		
+		// Don't check if the address is a 'toParse' location
+		// If it is, it will throw an error when trying to parse that content
+		if( ref === Ref.DATA || ref === Ref.MAYBE ){
+			this.doFork = true;
 			return false;
 		}
 		

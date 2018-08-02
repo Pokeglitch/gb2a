@@ -1,9 +1,9 @@
-let Table = require('./Table'),
+let Data = require('./Data'),
 	Address = require('./Address'),
 	Ref = require('./Ref'),
 	Warning = require('./Warning');
 
-class TableParser {
+class DataParser {
 	constructor( disassembly, addr ){
 		this.disassembly = disassembly;
 		this.addr = addr;
@@ -15,7 +15,7 @@ class TableParser {
 		this.index = addr;
 		this.doFork = false;
 		
-		this.Head = this.Table = new Table(this, addr);
+		this.Head = this.Data = new Data(this, addr);
 		this.disassembly.ROMRefs.set(addr, Ref.DATA);
 		
 		// Begin parsing
@@ -24,24 +24,15 @@ class TableParser {
 		this.finalize();
 		
 		if( this.doFork ){
-			new TableParser( disassembly, this.index );
+			new DataParser( disassembly, this.index );
 		}
 	}
 	
 	parse(){
 		do {
-			this.parsePointer();
+			let value = this.ROM[this.index++];
+			this.Data.addContent( value );
 		} while ( this.doContinue() )
-	}
-	
-	parsePointer(){
-		let addr = this.ROM[this.index++];
-		addr += 0x100 * this.ROM[this.index++];
-		
-		this.Table.addContent(addr);
-		this.disassembly.ROMRefs.set( addr, Ref.EXEC );
-		this.disassembly.RoutinesToParse.add(addr);
-		this.disassembly.ContentToParse.add(addr);
 	}
 	
 	/* Don't continue if:
@@ -70,9 +61,9 @@ class TableParser {
 	}
 	
 	finalize(){
-		this.Table.close( this.index );
+		this.Data.close( this.index );
 		this.Head.store();
 	}
 }
 
-module.exports = TableParser;
+module.exports = DataParser;

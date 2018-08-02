@@ -5,7 +5,7 @@ class Text {
 		this.parser = parser;
 		this.addr = addr;
 		
-		this.prefix = 'Text';
+		this.type = 'Text';
 		
 		// Initialize some data
 		this.content = [];

@@ -1,19 +1,19 @@
 let Address = require('./Address'),
 	Warning = require('./Warning');
 
-class Table {
+class Data {
 	constructor( parser, addr ){
 		this.parser = parser;
 		this.addr = addr;
 		
-		this.type = 'Table';
+		this.type = 'Data';
 		
 		// Initialize some data
 		this.content = [];
 	}
 	
-	addContent(ptr){
-		this.content.push(ptr);
+	addContent(value){
+		this.content.push(value);
 	}
 	
 	getNextAddr(){
@@ -21,19 +21,10 @@ class Table {
 	}
 	
 	split( addr ){
-	
-		let i = (addr - this.addr)/2;
-	
-		// If the difference is not an integer, then error
-		if( i % 1 ){
-			Warning(`Cannot parse table at ${ Address.toBankString(addr,'rom') } since it intersects a pointer in an already existing Table`);
-			return;
-		}
-	
 		let node = new Table( this.parser, addr );
 		
 		// A pointer is two bytes, so the index is the address different divided by 2
-		node.content = this.content.splice(i);
+		node.content = this.content.splice(addr - this.addr);
 		node.close(this.after_addr);
 		
 		this.close( addr );
@@ -46,7 +37,7 @@ class Table {
 	}
 	
 	store(){
-		this.parser.disassembly.ParsedTables.add(this);
+		this.parser.disassembly.ParsedData.add(this);
 		this.parser.disassembly.ParsedContent.add(this);
 		this.parser.disassembly.ShimOnlyROMNames.delete(this.addr);
 	}
@@ -62,8 +53,19 @@ class Table {
 			asm.write( label + '\n' );
 		})
 		
-		this.content.forEach( addr => asm.write( '\tdw ' + dis.getName(addr, 'rom') + '\n' ) );
+		let i = 0;
+		
+		while(i < this.content.length){
+			asm.write('\tdb');
+			for(let j=0; i < this.content.length && j < 8; j++, i++){
+				if( j > 0 ){
+					asm.write(',');
+				}
+				asm.write(' $' + Address.format( this.content[i], 2) );
+			}
+			asm.write('\n');
+		}
 	}
 }
 
-module.exports = Table;
+module.exports = Data;

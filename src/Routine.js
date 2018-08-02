@@ -10,6 +10,8 @@ class Routine {
 		this.prev = prev;
 		this.next = next;
 		
+		this.type = 'Routine';
+		
 		// Get the set containing the locations of each time this node was referenced
 		this.internal_ref_locs = parser.getInternalReferenceLocations(addr);
 				

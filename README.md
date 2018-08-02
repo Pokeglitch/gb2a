@@ -4,9 +4,9 @@
 
 Not a command line module right now.
 
-Place the rom file, the sym file, and the shim file in the same directory as 'index.js'.
+Modify the options in index.js as needed.
 
-Modify the options in index.js as needed
+The input shim/sym/charmap/rom come directly from the disassembly directory.
 
 Then open the command line the directory, and simply execute:
 
@@ -17,6 +17,8 @@ node index
 This will create an output.asm file containing the parsed routines, which is formatted to work immediately with RGBDS.
 
 It will also create a shim.sym file, which is a duplicate of the input shim.sym file, but will also include any additional pointers encountered during the disassembly process.
+
+It will also create new_shim_only.sym file, which only contains the new pointers that were added, for reference.
 
 After, you can simply move the output.asm into the rom source repository in the desired location, and replace the previous shim.sym with the new shim.sym. Then simply run `make` to build the rom using RGBDS, and it should *hopefully* build properly.
 
@@ -29,22 +31,6 @@ If this happens, delete the new address (created by this disassembler) from the 
 **- rom** | String, _required_
 
 The path to the rom file
-
----
-
-**- loc** | Number/String/Bank Address, _required_
-
-The location(s) in the ROM to parse (can be alone or in an array)
-
-Values can be:
-  * Number
-    * The global address
-  * String
-    * The name of address in the provided Sym/Shim file
-  * Bank Address 
-    * Array of [Bank, Addr]
-	  * Bank : Bank index as number
-	  * Addr : In-bank address as number (0x0000 - 0x7FFF)
 
 ---
 
@@ -86,15 +72,126 @@ The output file will use these as the pointer names
 
 ---
 
+**- charmap** | String
+
+The path to the Charmap file.  Uses the same format as rgbds.
+
+The disassembler will use this when parsing Text to convert the byte values into characters.
+
+The output character have be of any length, but the input value must be a single byte.
+
+It will stop parsing strings when it encounters a byte value that is not in this map
+
+---
+
+**- asm** | Number/String/Bank Address
+
+The location(s) in the ROM to parse for ASM routines
+
+Routines are written to the output file in the rgbds format
+
+Values can be (alone or in an array):
+  * Number
+    * The global address
+  * String
+    * The name of address in the provided Sym/Shim file
+  * Bank Address 
+    * Array of [Bank, Addr]
+	  * Bank : Bank index as number
+	  * Addr : In-bank address as number (0x0000 - 0x7FFF)
+
+---
+
+**- text** | Number/String/Bank Address
+
+The location(s) in the ROM to parse for Text
+
+It will continue parsing until it reaches a known address, an `eos` symbol, or a value not in the charmap
+
+Text is written to the output file as a string, a concatenation of all chars after converting from the byte value using the `charmap`
+
+Values can be (alone or in an array):
+  * Number
+    * The global address
+  * String
+    * The name of address in the provided Sym/Shim file
+  * Bank Address 
+    * Array of [Bank, Addr]
+	  * Bank : Bank index as number
+	  * Addr : In-bank address as number (0x0000 - 0x7FFF)
+
+---
+
+**- table** | Number/String/Bank Address
+
+The location(s) in the ROM to parse for tables
+
+It will assume that the table is a jumptable, meaning all values are routine pointers.
+
+It will continue parsing until it reaches a known address.
+
+If you want to parse a table of pointers that aren't routines, set the `gen` input to 0.
+Otherwise it will attempt to parse each pointer as a routine.
+
+If you want to extract data that isn't a table of pointers, use the `data` input
+
+Tables are written to the output file as a list of pointers
+
+Values can be (alone or in an array):
+  * Number
+    * The global address
+  * String
+    * The name of address in the provided Sym/Shim file
+  * Bank Address 
+    * Array of [Bank, Addr]
+	  * Bank : Bank index as number
+	  * Addr : In-bank address as number (0x0000 - 0x7FFF)
+
+---
+
+**- data** | Number/String/Bank Address
+
+The location(s) in the ROM to parse for raw data
+
+It will continue parsing until it reaches a known address
+
+Data is written to the output.asm file as individual hex values
+
+Values can be (alone or in an array):
+  * Number
+    * The global address
+  * String
+    * The name of address in the provided Sym/Shim file
+  * Bank Address 
+    * Array of [Bank, Addr]
+	  * Bank : Bank index as number
+	  * Addr : In-bank address as number (0x0000 - 0x7FFF)
+
+---
+
 **- gen** | Number
 
-The number of generations the disassembler should parse.
+The number of assembly generations the disassembler should parse.
 
-The input locations are the 0th generation.
+The input `asm` locations are the 0th generation.
 
 All calls/jumps within those routines are the 1st generation, and so on.
 
+All routines extracted from any input tables are considered 1st generation
+
 Default is `0`
+
+---
+
+**- eos** | Number/String
+
+The bytes or chars which represent the end of a string.
+
+Can be a a single value or in an array.
+
+If the input is a char, it must be in the charmap.
+
+The string will stop parsing when this value is reached, and will include it in the string.
 
 ---
 
