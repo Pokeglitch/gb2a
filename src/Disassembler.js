@@ -600,6 +600,11 @@ class Disassembler {
 			asm.write( '\n' );
 		}
 		
+		
+		if( prev_after_addr ){
+			asm.write(`; ${ Address.toBankString( prev_after_addr, 'rom' ) }\n\n`);
+		}
+		
 		asm.end();
 		
 		// Create the shim file
