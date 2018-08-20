@@ -40,10 +40,12 @@ class TableParser {
 	}
 	
 	parsePointer(){
-		let addr = this.bank_start;
-		
-		addr += this.ROM[this.index++];
+		let addr = this.ROM[this.index++];
 		addr += 0x100 * this.ROM[this.index++];
+		
+		if( addr >= 0x4000 ){
+			addr = this.bank_start + addr - 0x4000;
+		}
 		
 		this.Table.addContent(addr);
 		this.disassembly.ROMRefs.set( addr, Ref.EXEC );
