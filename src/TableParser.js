@@ -13,6 +13,11 @@ class TableParser {
 		
 		// Initialize the parser data
 		this.index = addr;
+		
+		// If in bank 0, then set to the input home bank
+		this.bank = Math.floor( addr / 0x4000 ) || disassembly.homeRefBank;
+		this.bank_start = this.bank * 0x4000;
+		
 		this.doFork = false;
 		
 		this.Head = this.Table = new Table(this, addr);
@@ -35,7 +40,9 @@ class TableParser {
 	}
 	
 	parsePointer(){
-		let addr = this.ROM[this.index++];
+		let addr = this.bank_start;
+		
+		addr += this.ROM[this.index++];
 		addr += 0x100 * this.ROM[this.index++];
 		
 		this.Table.addContent(addr);
