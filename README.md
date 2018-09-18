@@ -45,6 +45,16 @@ The disassembler will create 3 files:
 
 ---
 
+**- overwrite** | String
+
+Whether or not the output flie should overwrite any previously created files
+
+If `false`, it will create a new directory with a number appended at the end if the original directory already exists
+
+Default is `false`
+
+---
+
 **- sym** | String
 
 The path to the SymFile.

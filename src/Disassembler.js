@@ -9,7 +9,7 @@ let fs = require('fs'),
 	TableParser = require('./TableParser');
 
 class Disassembler {
-	constructor({ rom, asm, data, dir, sym, shim, charmap, eos, text, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
+	constructor({ rom, asm, data, dir, overwrite, sym, shim, charmap, eos, text, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
 		
 		// List of all references/address in RAM
 		this.RAMRefs = new Ref.Map();
@@ -108,7 +108,7 @@ class Disassembler {
 		this.parseRoutines();
 		
 		// Compile
-		this.compile( dir );
+		this.compile( dir, overwrite === true );
 	}
 	
 	// Checks whether the input is a valid Bank/Address combo
@@ -533,14 +533,14 @@ class Disassembler {
 	
 	// Returns true if the given address should be treated as a number
 	isMaybeANumber( addr ){
-		return !this.assumePtr || addr < this.minDataPtr || addr > this.maxDataPointer;
+		return !this.assumePtr || addr < this.minDataPtr || addr > this.maxDataPtr;
 	}
 	
-	compile( dir = 'outdir' ){
+	compile( dir = 'outdir', overwrite ){
 		let postfix = 0,
 			outDir = dir;
 		
-		while( true ){
+		while( !overwrite ){
 			// Try to create the directory until one works
 			try{
 				fs.mkdirSync(outDir);
