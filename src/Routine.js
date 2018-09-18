@@ -60,8 +60,7 @@ class Routine {
 	}
 	
 	// To upgrade this node
-	upgrade(){	
-	
+	upgrade(){
 		// Store the old prev
 		let oldPrev = this.prev;
 		
@@ -71,6 +70,7 @@ class Routine {
 	
 		// Add it to the ParsedRoutines
 		this.parser.ParsedRoutines.add( this );
+		this.parser.disassembly.ParsedContent.add( this );
 		this.parser.disassembly.ShimOnlyROMNames.delete( this.getHead().addr );
 		
 		// Set the new type
