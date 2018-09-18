@@ -540,13 +540,16 @@ class Disassembler {
 		let postfix = 0,
 			outDir = dir;
 		
-		while( !overwrite ){
+		while( true ){
 			// Try to create the directory until one works
 			try{
 				fs.mkdirSync(outDir);
 				break;
 			}
 			catch(e){
+				if( overwrite ){
+					break;
+				}
 				// If there was an error in creating the directory that wasnt due to an aleady existing directory, then exit
 				if( !e.message.startsWith('EEXIST') ){
 					Warning("Error creating output directory: '" + outDir + "'");
