@@ -547,13 +547,14 @@ class Disassembler {
 				break;
 			}
 			catch(e){
-				if( overwrite ){
-					break;
-				}
 				// If there was an error in creating the directory that wasnt due to an aleady existing directory, then exit
 				if( !e.message.startsWith('EEXIST') ){
 					Warning("Error creating output directory: '" + outDir + "'");
 					return;
+				}
+				// If it was due to an existing directory, but overwrite is permitted, then break
+				else if( overwrite ){
+					break;
 				}
 				postfix++;
 				outDir = dir + postfix;

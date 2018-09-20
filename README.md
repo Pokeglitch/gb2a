@@ -6,7 +6,7 @@ Not a command line module right now.
 
 Modify the options in index.js as needed.
 
-The input shim/sym/charmap/rom can be copied from the disaseembly directory, or directly refer to those files
+The input shim/sym/charmap/rom can be copied from the disassembly directory, or directly refer to those files
 
 Then open the command line the directory, and simply execute:
 
@@ -47,7 +47,7 @@ The disassembler will create 3 files:
 
 **- overwrite** | String
 
-Whether or not the output flie should overwrite any previously created files
+Whether or not the output file should overwrite any previously created files
 
 If `false`, it will create a new directory with a number appended at the end if the original directory already exists
 
@@ -61,7 +61,7 @@ The path to the SymFile.
 
 The disassembler will assume all pointers in the SymFile have already been parsed (unless they are also in the ShimFile)
 
-Therefor, it will not parse any data at those locations, unless explicity told to by the input locations
+Therefore, it will not parse any data at those locations, unless explicity told to by the input locations
 
 The output file will use these as the pointer names
 
