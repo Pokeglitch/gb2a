@@ -23,7 +23,7 @@ class OrderedList{
 		return null;
 	}
 	
-	// To see if this list and it scontents contain the provided addr
+	// To see if this list and it's contents contain the provided addr
 	contains( addr ){
 		let node = this;
 		

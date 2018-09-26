@@ -9,7 +9,7 @@ let fs = require('fs'),
 	TableParser = require('./TableParser');
 
 class Disassembler {
-	constructor({ rom, asm, data, dir, overwrite, sym, shim, charmap, eos, text, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank }){
+	constructor({ rom, asm, data, dir, overwrite, sym, shim, charmap, eos, text, table, gen, assumePtr, minDataPtr, maxDataPtr, homeRefBank, useRAMoffset }){
 		
 		// List of all references/address in RAM
 		this.RAMRefs = new Ref.Map();
@@ -92,6 +92,7 @@ class Disassembler {
 		this.TablesToParse = this.importLocations(table);
 		
 		this.assumePtr = assumePtr === true;
+		this.useRAMoffset = useRAMoffset === true;
 		
 		this.minDataPtr = (typeof minDataPtr === 'number' && 0 <= minDataPtr <= this.ROM.length) ? minDataPtr : 0;
 		this.maxDataPtr = (typeof maxDataPtr === 'number' && 0 <= maxDataPtr <= this.ROM.length) ? maxDataPtr : this.ROM.length;
@@ -229,7 +230,6 @@ class Disassembler {
 					if( names.length && prev_type !== type ){
 						this.ShimOnlyRAMNames.set( index.addr, names.slice() );
 					}
-					
 					this.RAMRefs.link( name, index.addr );
 					this.RAMRefs.set( index.addr, type );
 				}
@@ -309,8 +309,19 @@ class Disassembler {
 				return asArray ? list : list[0];
 			}
 			
+			if( this.useRAMoffset ){
+				// Get the previous ram position
+				let prev = this.RAMRefs.findPrev(addr);
+				
+				if( prev ){
+					let name = `${prev.name}+${addr - prev.addr}`;
+					return asArray ? [name] : name;
+				}
+			}
+			
 			let name = '';
 			
+			// If a name still doesnt exist (useRAMoffset == false or there is no earlier RAM position) then create a new name
 			switch( this.RAMRefs.get(addr) ){
 				case Ref.MAYBE:
 					if( this.isMaybeANumber(addr) ){
@@ -344,7 +355,10 @@ class Disassembler {
 					}
 			}
 			
-			this.RAMRefs.link( name, addr );
+			// Don't store the name if we are using ram offset
+			if( !this.useRAMoffset ){
+				this.RAMRefs.link( name, addr );
+			}
 			return asArray ? [name] : name;
 		}
 		else{

@@ -1,4 +1,5 @@
-let types = [ 'NONE', 'MAYBE', 'DATA', 'EXEC', 'SUB', 'MAIN' ];
+let OrderedList = require('./OrderedList'),
+	types = [ 'NONE', 'MAYBE', 'DATA', 'EXEC', 'SUB', 'MAIN' ];
 
 //TODO - Give this it's own iterator
 class RefMap {
@@ -6,20 +7,40 @@ class RefMap {
 		this.data = new Map();
 		this.NameToIndex = new Map();
 		this.IndexToName = new Map();
+		this.OrderedNames = new OrderedList( x => x.addr );
 		this.doTrack = false;
 		this.trackedAddresses = new Set();
+	}
+	// To find the address before the given address 
+	findPrev(addr){
+		let prev = null;
+		
+		// Iterate through until the given address is found or passed
+		for(let data of this.OrderedNames){
+			if( data.addr >= addr ){
+				break;
+			}
+			prev = data;
+		}		
+		
+		return prev;
 	}
 	// To link the name to index and vice versa
 	// A single address can have multiple names, so store as a list
 	link( name, index ){
 		if( this.IndexToName.has(index) ){
 			let list = this.IndexToName.get(index);
+			if( list.length === 0 ){
+				// If this is the first name being added, then add it to the OrderedNames list
+				this.OrderedNames.add({ addr : index, name });
+			}
 			if( list.indexOf(name) === -1 ){
 				list.push(name);
 			}
 		}
 		else{
 			this.IndexToName.set( index, [name] );
+			this.OrderedNames.add({ addr : index, name });
 		}
 		this.NameToIndex.set(name, index);
 	}

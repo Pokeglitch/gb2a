@@ -235,3 +235,13 @@ Bank switching is not detected during the disassembly process.
 When a non-home address is referenced from the home bank, it will simply write the address as a number to the output file. (Unless the ROM itself only has 1 bank)
 
 If this value is provided, the disassembler will instead assume that the address lies within the given bank.
+
+---
+
+**- useRAMoffset** | Boolean
+
+When a RAM pointer is encountered that does not exist in the provided SYM or SHIM files, the disassembler will give it a new name if this is `false`
+
+If this is `true`, the disassembler will not create a new name, but instead it will use an offset of the nearest named RAM pointer with a lower address (if one exists)
+
+Default is `false`
